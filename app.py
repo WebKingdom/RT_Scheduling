@@ -76,6 +76,7 @@ def rms_utilization_test(tasks: list[Task]) -> bool:
     for i in range(0, n):
         sum += float(tasks[i].exec_t) / float(tasks[i].period)
         tasks[i].priority = i
+    print("RMS Processor Utilization: " + str(sum * 100) + "%")
     return (sum <= limit, tasks)
 
 
@@ -120,6 +121,7 @@ def edf_utilization_test(tasks: list[Task]) -> bool:
     for i in range(0, len(tasks)):
         sum += float(tasks[i].exec_t) / float(tasks[i].period)
         tasks[i].priority = i
+    print("EDF Processor Utilization: " + str(sum * 100) + "%")
     return (sum <= 1.0, tasks)
 
 
@@ -180,7 +182,7 @@ def generate_rms_schedule(tasks: list[Task]):
     sched_exact_test = rms_exact_analysis_test(tasks)
     print("RMS utilization test: " + str(sched_util_test))
     print("RMS exact analysis test: " + str(sched_exact_test))
-    preemptions = [Preemption]
+    preemptions = []
 
     if (sched_util_test or sched_exact_test):
         # current time and task index
@@ -189,6 +191,7 @@ def generate_rms_schedule(tasks: list[Task]):
         multiples = [0] * n
         task_q = copy.deepcopy(tasks)
         lcm = get_lcm_period(tasks)
+        remainder = 0
         if DEBUG_LEVEL >= MEDIUM:
             print("LCM = " + str(lcm))
 
@@ -215,7 +218,7 @@ def generate_rms_schedule(tasks: list[Task]):
                 cur_t = end_t
                 if (remainder > 0):
                     task_q[-1].remaining_t = remainder
-                    preemptions.append(Preemption(copy.deepcopy(task), task, cur_t))
+                    preemptions.append(Preemption(copy.deepcopy(task), Task("Temp", -1, -1), cur_t))
                 elif (remainder == 0):
                     task_q.pop()
                 else:
@@ -230,7 +233,9 @@ def generate_rms_schedule(tasks: list[Task]):
                     # add to task_q and update multiples
                     task_q = insert_task_q(task_q, tasks[i])
                     multiples[i] = new_multiple
-                    preemptions[-1].new_task = copy.deepcopy(tasks[i])     # update new_task correctly
+                    # update preemption new_task accordingly
+                    if (remainder > 0):
+                        preemptions[-1].new_task = copy.deepcopy(tasks[i])
     else:
         print("Task set is not schedulable by RMS.")
         return pd.DataFrame([dict(Task="Not RMS Schedulable", Start=0, Finish=0)])
@@ -282,7 +287,7 @@ def generate_edf_schedule(tasks: list[Task]):
 # get tasks and sort from high to low priority
 # tasks = [Task("T1", 1, 8), Task("T2", 2, 6), Task("T3", 4, 24)]
 # tasks = [Task("T1", 3, 12), Task("T2", 3, 12), Task("T3", 8, 16)]
-tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 4, 16), Task("T4", 2, 32)]
+tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 32), Task("T5", 6, 96)]
 tasks_rms = copy.deepcopy(tasks)
 tasks_edf = copy.deepcopy(tasks)
 
