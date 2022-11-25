@@ -35,11 +35,13 @@ class TimeFrame:
 class Task:
     def __init__(self, name: str, exec_t: int, period: int):
         self.name = name
-        self.exec_t = exec_t
-        self.remaining_t = exec_t
-        self.period = period
-        self.time_frames = []
-        self.priority = -1
+        self.exec_t = exec_t        # constant once set
+        self.remaining_t = exec_t   # changes depending on cur_t
+        self.period = period        # constant once set
+        self.deadline = period      # constant once set
+        self.cur_deadline = period  # changes depending on cur_t
+        self.time_frames = []       # changes depending on cur_t
+        self.priority = -1          # constant once set
 
     def getDict(self, index: int):
         tf = self.time_frames[index]
@@ -138,8 +140,8 @@ def get_lcm_period(tasks: list[Task]) -> int:
     return lcm
 
 
-# inserts 1 task at the correct index into the task queue (ordered low to high priority)
-def insert_task_q(task_q: list[Task], task: Task) -> list[Task]:
+# inserts 1 task at the correct index into the task queue for RMS (ordered low to high priority)
+def insert_task_q_rms(task_q: list[Task], task: Task) -> list[Task]:
     task = copy.deepcopy(task)
     n = len(task_q)
     if (n == 0):
@@ -154,20 +156,19 @@ def insert_task_q(task_q: list[Task], task: Task) -> list[Task]:
             return task_q
 
 
-# !!! NOT USED: inserts the same priority tasks at the correct index into the task queue (ordered low to high priority)
-def insert_tasks_q(task_q: list[Task], tasks: list[Task]) -> list[Task]:
+# inserts 1 task at the correct index into the task queue for EDF (ordered low to high priority)
+def insert_task_q_edf(task_q: list[Task], task: Task) -> list[Task]:
+    task = copy.deepcopy(task)
     n = len(task_q)
     if (n == 0):
-        task_q = tasks
+        task_q = [task]
         return task_q
     for i in range(n - 1, -1, -1):
-        if (tasks[i].period < task_q[i].period):
-            while (len(tasks) != 0):
-                task_q.insert(i+1, tasks.pop())
+        if (task.cur_deadline < task_q[i].cur_deadline):
+            task_q.insert(i+1, task)
             return task_q
-        elif (tasks[i].period == task_q[i].period):
-            while (len(tasks) != 0):
-                task_q.insert(i, tasks.pop())
+        elif (task.cur_deadline == task_q[i].cur_deadline):
+            task_q.insert(i, task)
             return task_q
 
 
@@ -178,13 +179,13 @@ def generate_rms_schedule(tasks: list[Task]):
         print_error("Error: len(tasks) <= 0. Must have 1+ tasks for scheduling.")
         return pd.DataFrame([dict(Task="No tasks.", Start=0, Finish=0)])
 
-    # * must sort tasks from low (0) to high (len(tasks - 1)) priority so that utilization test can set priority
-    tasks = sorted(tasks, key=lambda task: task.period, reverse=True)
+    # * must sort tasks from low (0) to high (len(tasks) - 1) priority so that utilization test can set priority
+    tasks = copy.deepcopy(sorted(tasks, key=lambda task: task.period, reverse=True))
     sched_util_test, tasks = rms_utilization_test(tasks)
     sched_exact_test = rms_exact_analysis_test(tasks)
     print("RMS utilization test: " + str(sched_util_test))
     print("RMS exact analysis test: " + str(sched_exact_test))
-    # list of preemptions and higher priority task indices than the current task being scheduled
+    # list of preemptions
     preemptions = []
 
     if (sched_util_test or sched_exact_test):
@@ -202,6 +203,7 @@ def generate_rms_schedule(tasks: list[Task]):
                 # get highest priority task
                 task = task_q[-1]
                 end_t = cur_t + task.remaining_t
+                # list of higher priority task indices than the current task being scheduled
                 task_indices = []
 
                 # determine end_t due to higher priority tasks
@@ -232,20 +234,16 @@ def generate_rms_schedule(tasks: list[Task]):
                     task_q.pop()
                 else:
                     print_error("Error: remaining_t of task is less than 0.")
-
-                # update multiples and task_q if new higher priority task arrived by end_t
-                for idx in task_indices:
-                    multiples[idx] = int(end_t / tasks[idx].period)
-                    task_q = insert_task_q(task_q, tasks[idx])
                 cur_t = end_t
             else:
-                # no task to schedule, increment time, check if task multiples changed at cur_t, and update task_q
+                # no task to schedule, increment time
                 cur_t += 1
-                for i in range(0, len(multiples)):
-                    new_multiple = int(cur_t / tasks[i].period)
-                    if (new_multiple != multiples[i]):
-                        task_q = insert_task_q(task_q, tasks[i])
-                        multiples[i] = new_multiple
+            # update multiples based on cur_t and update task_q
+            for i in range(0, len(multiples)):
+                new_multiple = int(cur_t / tasks[i].period)
+                if (new_multiple != multiples[i]):
+                    task_q = insert_task_q_rms(task_q, tasks[i])
+                    multiples[i] = new_multiple
     else:
         print("Task set is not schedulable by RMS.")
         return pd.DataFrame([dict(Task="Not RMS Schedulable", Start=0, Finish=0)])
@@ -277,10 +275,11 @@ def generate_edf_schedule(tasks: list[Task]):
         print_error("Error: len(tasks) <= 0. Must have 1+ tasks for scheduling.")
         return pd.DataFrame([dict(Task="No tasks.", Start=0, Finish=0)])
 
-    # * must sort tasks from low (0) to high (len(tasks - 1)) priority so that utilization test can set priority
-    tasks = sorted(tasks, key=lambda task: task.period, reverse=True)
+    # * must sort tasks from low (0) to high (len(tasks) - 1) priority so that utilization test can set priority
+    tasks = copy.deepcopy(sorted(tasks, key=lambda task: task.cur_deadline, reverse=True))
     sched_util_test, tasks = edf_utilization_test(tasks)
     print("EDF utilization test: " + str(sched_util_test))
+    # list of preemptions
     preemptions = []
 
     if (sched_util_test):
@@ -290,21 +289,55 @@ def generate_edf_schedule(tasks: list[Task]):
         multiples = [0] * n
         task_q = copy.deepcopy(tasks)
         lcm = get_lcm_period(tasks)
-        remainder = 0
         if DEBUG_LEVEL >= MEDIUM:
             print("LCM = " + str(lcm))
-        
+
         while (cur_t < lcm):
             if (len(task_q) > 0):
                 # get highest priority task
                 task = task_q[-1]
                 end_t = cur_t + task.remaining_t
-                # TODO
+                # list of higher priority task indices than the current task being scheduled
+                task_indices = []
 
+                # determine end_t due to higher priority tasks
+                for i in range(0, len(multiples)):
+                    new_multiple = int(end_t / tasks[i].period)
+                    if (new_multiple != multiples[i]):
+                        if (int(tasks[i].period * new_multiple + tasks[i].deadline) < task.cur_deadline):
+                            # task has higher priority (earlier deadline) than current task being scheduled
+                            # minimize end_t (current task will be preempted)
+                            new_end_t = tasks[i].period * new_multiple
+                            if (new_end_t < end_t):
+                                end_t = new_end_t
+                                task_indices = [i]
+                            elif (new_end_t == end_t):
+                                # occurs when 2+ tasks have the same deadline/priority
+                                task_indices.append(i)
+                
+                # update remaining_t, add TimeFrame for current task (if applicable), and update task_q
+                remainder = task.remaining_t - (end_t - cur_t)
+                if (cur_t != end_t):
+                    tasks[task.priority].time_frames.append(TimeFrame(cur_t, end_t))
+                if (remainder > 0):
+                    task_q[-1].remaining_t = remainder
+                    if (cur_t != end_t):
+                        preemptions.append(Preemption(copy.deepcopy(task), copy.deepcopy(tasks[task_indices[-1]]), end_t))
+                elif (remainder == 0):
+                    # done scheduling highest priority task
+                    task_q.pop()
+                else:
+                    print_error("Error: remaining_t of task is less than 0.")
+                cur_t = end_t
             else:
                 # no task to schedule, increment time
                 cur_t += 1
-
+            for i in range(0, len(multiples)):
+                new_multiple = int(cur_t / tasks[i].period)
+                if (new_multiple != multiples[i]):
+                    tasks[i].cur_deadline = int(tasks[i].period * new_multiple + tasks[i].deadline)
+                    task_q = insert_task_q_edf(task_q, tasks[i])
+                    multiples[i] = new_multiple
     else:
         print("Task set is not schedulable by EDF.")
         return pd.DataFrame([dict(Task="Not EDF Schedulable", Start=0, Finish=0)])
@@ -328,57 +361,18 @@ def generate_edf_schedule(tasks: list[Task]):
     return df
 
 
-# get tasks and sort from high to low priority
+# shows the schedule in the DataFrame and height and width parameters
+def show_schedule(df, h, w):
+    fig = ff.create_gantt(df, index_col='Task', showgrid_x=True, bar_width=0.3, show_colorbar=True, group_tasks=True)
+    fig.update_layout(xaxis_type='linear', autosize=False, width=w, height=h)
+    fig.show()
+
+
+# get tasks
 # tasks = [Task("T1", 1, 8), Task("T2", 2, 6), Task("T3", 4, 24)]
 # tasks = [Task("T1", 3, 12), Task("T2", 3, 12), Task("T3", 8, 16)]
-tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 4, 16)]
+# tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 4, 16)]
+tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 32), Task("T5", 6, 96)]
 
-# tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 32), Task("T5", 6, 96)]
-tasks_rms = copy.deepcopy(tasks)
-tasks_edf = copy.deepcopy(tasks)
-print_error("Test Error")
-
-# show RMS schedule
-df_rms = generate_rms_schedule(tasks_rms)
-fig = ff.create_gantt(df_rms, index_col='Task', showgrid_x=True,
-                      bar_width=0.4, show_colorbar=True, group_tasks=True)
-fig.update_layout(xaxis_type='linear', autosize=False, width=800, height=400)
-fig.show()
-
-
-# show EDF schedule
-# df_edf = generate_edf_schedule(tasks_edf)
-# fig = ff.create_gantt(df_edf, index_col='Task', showgrid_x=True,
-#                       bar_width=0.4, show_colorbar=True, group_tasks=True)
-# fig.update_layout(xaxis_type='linear', autosize=False, width=800, height=400)
-# fig.show()
-
-
-
-# A = (2, 10), B = (1, 15) where (ci, pi)
-# tasks = [Task("T1", 2, 10), Task("T2", 1, 15)]
-
-# tasks[0].time_frames.append(TimeFrame(0, 2))
-# tasks[1].time_frames.append(TimeFrame(2, 3))
-
-# tasks[0].time_frames.append(TimeFrame(10, 12))
-# tasks[1].time_frames.append(TimeFrame(15, 16))
-
-# dfs = []
-# # for each task in tasks
-# for task in tasks:
-#     if DEBUG_LEVEL >= HIGH: print(task)
-#     # add all time frames in the task to the DataFrame.
-#     for i in range(0, len(task.time_frames)):
-#         cur_dict = task.getDict(i)
-#         if DEBUG_LEVEL >= MEDIUM: print(cur_dict)
-#         dfs.append(pd.DataFrame([cur_dict]))
-
-# df = pd.concat(dfs)
-# if DEBUG_LEVEL >= LOW: print(df)
-
-# # index_col='Resource',
-# fig = ff.create_gantt(df, index_col='Task', showgrid_x=True,
-#                       bar_width=0.4, show_colorbar=True, group_tasks=True)
-# fig.update_layout(xaxis_type='linear', autosize=False, width=800, height=400)
-# fig.show()
+show_schedule(generate_rms_schedule(tasks), len(tasks) * 100, 800)
+show_schedule(generate_edf_schedule(tasks), len(tasks) * 100, 800)
