@@ -4,14 +4,7 @@ import copy
 import plotly.express as px
 import plotly.figure_factory as ff
 import pandas as pd
-
-# df = pd.DataFrame([
-#     dict(Task="Job A", Start=0, Finish=2),
-#     dict(Task="Job B", Start=2, Finish=3),
-#     dict(Task="Job A", Start=10, Finish=12),
-#     dict(Task="Job B", Start=15, Finish=16)
-# ])
-
+from PyQt5 import QtCore, QtWidgets, uic
 
 # Set debug level higher to output more information
 DISABLED = 0
@@ -19,6 +12,42 @@ LOW = 1
 MEDIUM = 2
 HIGH = 3
 DEBUG_LEVEL = MEDIUM
+
+qt_ui_file = "RT_Visualizer.ui"
+Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_ui_file)
+
+
+# Visualizer model for QListView
+class VisModel(QtCore.QAbstractListModel):
+    def __init__(self, *args, tasks=None, **kwargs) -> None:
+        super(VisModel, self).__init__(*args, **kwargs)
+        self.tasks = tasks or []
+        
+    def rowCount(self, index):
+        return len(self.tasks)
+
+
+# Main window MVC class
+class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+    def __init__(self):
+        QtWidgets.QMainWindow.__init__(self)
+        Ui_MainWindow.__init__(self)
+        self.setupUi(self)
+        self.model = VisModel()
+        self.listView.setModel(self.model)
+        self.addTaskBtn.pressed.connect(self.addTask)
+        self.deleteTaskBtn.pressed.connect(self.deleteTask)
+        
+    def addTask(self):
+        task_name = self.lineEditTaskName.text()
+        # TODO 
+        print("Add task pressed")
+        
+    def deleteTask(self):
+        indexes = self.listView.selectedIndexes()
+        # TODO
+        print("Delete task pressed")
+        
 
 
 # TimeFrame class for holding a start and end time
@@ -40,8 +69,8 @@ class Task:
         self.period = period        # constant once set
         self.deadline = period      # constant once set
         self.cur_deadline = period  # changes depending on cur_t
-        self.time_frames = []       # changes depending on cur_t
         self.priority = -1          # constant once set
+        self.time_frames = []       # changes depending on cur_t
 
     def getDict(self, index: int):
         tf = self.time_frames[index]
@@ -78,7 +107,7 @@ def rms_utilization_test(tasks: list[Task]) -> bool:
     for i in range(0, n):
         sum += float(tasks[i].exec_t) / float(tasks[i].period)
         tasks[i].priority = i
-    print("RMS Processor Utilization: " + str(sum * 100) + "%")
+    print("RMS Processor Utilization: " + str(round(sum * 100, 3)) + "%")
     return (sum <= limit, tasks)
 
 
@@ -123,7 +152,7 @@ def edf_utilization_test(tasks: list[Task]) -> bool:
     for i in range(0, len(tasks)):
         sum += float(tasks[i].exec_t) / float(tasks[i].period)
         tasks[i].priority = i
-    print("EDF Processor Utilization: " + str(sum * 100) + "%")
+    print("EDF Processor Utilization: " + str(round(sum * 100, 3)) + "%")
     return (sum <= 1.0, tasks)
 
 
@@ -143,11 +172,10 @@ def get_lcm_period(tasks: list[Task]) -> int:
 # inserts 1 task at the correct index into the task queue for RMS (ordered low to high priority)
 def insert_task_q_rms(task_q: list[Task], task: Task) -> list[Task]:
     task = copy.deepcopy(task)
-    n = len(task_q)
-    if (n == 0):
+    if ((task_q is None) or ((task_q is not None) and (len(task_q) == 0))):
         task_q = [task]
         return task_q
-    for i in range(n - 1, -1, -1):
+    for i in range(len(task_q) - 1, -1, -1):
         if (task.period < task_q[i].period):
             task_q.insert(i+1, task)
             return task_q
@@ -159,11 +187,10 @@ def insert_task_q_rms(task_q: list[Task], task: Task) -> list[Task]:
 # inserts 1 task at the correct index into the task queue for EDF (ordered low to high priority)
 def insert_task_q_edf(task_q: list[Task], task: Task) -> list[Task]:
     task = copy.deepcopy(task)
-    n = len(task_q)
-    if (n == 0):
+    if ((task_q is None) or ((task_q is not None) and (len(task_q) == 0))):
         task_q = [task]
         return task_q
-    for i in range(n - 1, -1, -1):
+    for i in range(len(task_q) - 1, -1, -1):
         if (task.cur_deadline < task_q[i].cur_deadline):
             task_q.insert(i+1, task)
             return task_q
@@ -199,7 +226,7 @@ def generate_rms_schedule(tasks: list[Task]):
             print("LCM = " + str(lcm))
 
         while (cur_t < lcm):
-            if (len(task_q) > 0):
+            if ((task_q is not None) and (len(task_q) > 0)):
                 # get highest priority task
                 task = task_q[-1]
                 end_t = cur_t + task.remaining_t
@@ -293,7 +320,7 @@ def generate_edf_schedule(tasks: list[Task]):
             print("LCM = " + str(lcm))
 
         while (cur_t < lcm):
-            if (len(task_q) > 0):
+            if ((task_q is not None) and (len(task_q) > 0)):
                 # get highest priority task
                 task = task_q[-1]
                 end_t = cur_t + task.remaining_t
@@ -374,5 +401,15 @@ def show_schedule(df, h, w):
 # tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 4, 16)]
 tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 32), Task("T5", 6, 96)]
 
+tasks = [Task("T1", 1, 8), Task("T6", 1, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 32), Task("T5", 3, 96), Task("T7", 2, 96)]
+
+
+# tasks = [Task("T1", 1, 4), Task("T2", 3, 50), Task("T3", 3, 32), Task("T4", 1, 36), Task("T5", 5, 128)]
+
 show_schedule(generate_rms_schedule(tasks), len(tasks) * 100, 800)
 show_schedule(generate_edf_schedule(tasks), len(tasks) * 100, 800)
+
+app = QtWidgets.QApplication(sys.argv)
+window = MainWindow()
+window.show()
+app.exec_()
