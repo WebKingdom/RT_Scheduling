@@ -107,6 +107,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="generateSchedBtn">
+        <property name="text">
+         <string>Generate Schedules</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>

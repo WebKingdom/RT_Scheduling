@@ -5,59 +5,18 @@ import plotly.express as px
 import plotly.figure_factory as ff
 import pandas as pd
 from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5.QtCore import Qt
 
 # Set debug level higher to output more information
 DISABLED = 0
 LOW = 1
 MEDIUM = 2
 HIGH = 3
-DEBUG_LEVEL = MEDIUM
+VERBOSITY = MEDIUM
 
+# Refer to https://www.pythonguis.com/tutorials/modelview-architecture/ for MVC
 qt_ui_file = "RT_Visualizer.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_ui_file)
-
-
-# Visualizer model for QListView
-class VisModel(QtCore.QAbstractListModel):
-    def __init__(self, *args, tasks=None, **kwargs) -> None:
-        super(VisModel, self).__init__(*args, **kwargs)
-        self.tasks = tasks or []
-        
-    def rowCount(self, index):
-        return len(self.tasks)
-
-
-# Main window MVC class
-class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self):
-        QtWidgets.QMainWindow.__init__(self)
-        Ui_MainWindow.__init__(self)
-        self.setupUi(self)
-        self.model = VisModel()
-        self.listView.setModel(self.model)
-        self.addTaskBtn.pressed.connect(self.addTask)
-        self.deleteTaskBtn.pressed.connect(self.deleteTask)
-        
-    def addTask(self):
-        task_name = self.lineEditTaskName.text()
-        # TODO 
-        print("Add task pressed")
-        
-    def deleteTask(self):
-        indexes = self.listView.selectedIndexes()
-        # TODO
-        print("Delete task pressed")
-        
-
-
-# TimeFrame class for holding a start and end time
-class TimeFrame:
-    def __init__(self, start_t=0, end_t=0):
-        self.start_t = start_t
-        self.end_t = end_t
-
-    def __str__(self):
-        return f"({self.start_t}, {self.end_t})"
 
 
 # Task class for holding task name, ci, pi, and time frames
@@ -70,16 +29,43 @@ class Task:
         self.deadline = period      # constant once set
         self.cur_deadline = period  # changes depending on cur_t
         self.priority = -1          # constant once set
-        self.time_frames = []       # changes depending on cur_t
+        self.time_frames = list()   # changes depending on cur_t
 
     def getDict(self, index: int):
+        # get TimeFrame tuple of: (start_t, end_t)
         tf = self.time_frames[index]
-        if DEBUG_LEVEL >= HIGH:
+        if VERBOSITY >= HIGH:
             print(tf)
-        return dict(Task=self.name, Start=tf.start_t, Finish=tf.end_t)
+        return dict(Task=self.name, Start=tf[0], Finish=tf[1])
+    
+    def add_time_frame(tf):
+        raise NotImplementedError
+    
+    def remove_time_frame(tf):
+        raise NotImplementedError
+    
+    def __iter__(self):
+        return TaskIter(self)
 
     def __str__(self):
-        return f"Task {self.name}: ({self.exec_t}, {self.period}). TimeFrames: {self.time_frames}"
+        return f"Task {self.name}: ({self.exec_t}, {self.period})"
+
+
+# Iterator class for Task class
+class TaskIter():
+    def __init__(self, task_class):
+        self._task = task_class
+        self._cur_index = 0
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if (self._cur_index < len(self._task.time_frames)):
+            cur_item = self._task.time_frames[self._cur_index]
+            self._cur_index += 1
+            return cur_item
+        raise StopIteration
 
 
 # Preemption class for holding currently executing task, new task that will preempt the currently executing task, 
@@ -92,6 +78,83 @@ class Preemption():
 
     def __str__(self):
         return f"Task {self.exec_task.name} preempted by {self.new_task.name} at time {self.time}"
+
+
+# Visualizer tasks list model (for QListView holding tasks)
+class TasksListModel(QtCore.QAbstractListModel):
+    def __init__(self, *args, tasks=None, **kwargs):
+        super(TasksListModel, self).__init__(*args, **kwargs)
+        self.tasks = tasks or []
+
+    # handles requests for data from the view and returns appropriate result
+    def data(self, index ,role):
+        if (role == Qt.DisplayRole):
+            task = self.tasks[index.row()]
+            return str(task)
+
+    # called by the view to get the rows in the current data
+    def rowCount(self, index):
+        return len(self.tasks)
+
+
+# Main window MVC class
+class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+    def __init__(self):
+        QtWidgets.QMainWindow.__init__(self)
+        Ui_MainWindow.__init__(self)
+        self.setupUi(self)
+        self.model = TasksListModel()
+        self.listView.setModel(self.model)
+        self.addTaskBtn.pressed.connect(self.addTask)
+        self.deleteTaskBtn.pressed.connect(self.deleteTask)
+        self.generateSchedBtn.pressed.connect(self.generateSched)
+
+    def set_console(self, text):
+        self.textEditConsole.setText(text)
+
+    def append_console(self, text):
+        self.textEditConsole.append(text)
+
+    def clear_console(self):
+        self.textEditConsole.setText("")
+
+    def addTask(self):
+        task_name = self.lineEditTaskName.text()
+        task_exec_t = self.lineEditTaskExecTime.text()
+        task_period = self.lineEditTaskPeriod.text()
+        
+        # Ensure strings are not empty
+        if (task_name and task_exec_t and task_period):
+            # add task to tasks list. It is a tuple of status and task (which will be converted to text using str())
+            new_task = Task(str(task_name), int(task_exec_t), int(task_period))
+            self.model.tasks.append(new_task)
+            # trigger refresh
+            self.model.layoutChanged.emit()
+            # clear inputs
+            self.lineEditTaskName.setText("")
+            self.lineEditTaskExecTime.setText("")
+            self.lineEditTaskPeriod.setText("")
+            self.set_console(str(new_task) + " added")
+        else:
+            self.set_console("Ensure no input fields are empty when adding a task!")
+
+    def deleteTask(self):
+        indexes = self.listView.selectedIndexes()
+        if (indexes):
+            # indexes is a list of a single item in single-select mode
+            index = indexes[0]
+            # delete task, refresh, and clear selection
+            to_delete = self.model.tasks[index.row()]
+            del self.model.tasks[index.row()]
+            self.model.layoutChanged.emit()
+            self.listView.clearSelection()
+            print(str(to_delete) + " deleted")
+        else:
+            self.set_console("No task to delete")
+
+    def generateSched(self):
+        # TODO 
+        self.set_console("Generating RMS and EDF schedules")
 
 
 # Error message printer
@@ -124,11 +187,11 @@ def rms_exact_analysis_test(tasks: list[Task]) -> bool:
             workload = compute_workload(tasks[i:n], cur_time)
 
         if (cur_time == workload):
-            if DEBUG_LEVEL >= MEDIUM:
+            if VERBOSITY >= MEDIUM:
                 print(str(task) + " schedulable by exact analysis due to: " +
                       str(cur_time) + " == " + str(workload))
         elif (workload > task.period):
-            if DEBUG_LEVEL >= MEDIUM:
+            if VERBOSITY >= MEDIUM:
                 print(str(task) + " NOT schedulable by exact analysis due to: " +
                       str(workload) + " > " + str(task.period))
             return False
@@ -222,7 +285,7 @@ def generate_rms_schedule(tasks: list[Task]):
         multiples = [0] * n
         task_q = copy.deepcopy(tasks)
         lcm = get_lcm_period(tasks)
-        if DEBUG_LEVEL >= MEDIUM:
+        if VERBOSITY >= MEDIUM:
             print("LCM = " + str(lcm))
 
         while (cur_t < lcm):
@@ -248,10 +311,10 @@ def generate_rms_schedule(tasks: list[Task]):
                                 # occurs when 2+ tasks have the same period/priority
                                 task_indices.append(i)
 
-                # update remaining_t, add TimeFrame for current task (if applicable), and update task_q
+                # update remaining_t, add TimeFrame tuple for current task (if applicable), and update task_q
                 remainder = task.remaining_t - (end_t - cur_t)
                 if (cur_t != end_t):
-                    tasks[task.priority].time_frames.append(TimeFrame(cur_t, end_t))
+                    tasks[task.priority].time_frames.append((cur_t, end_t))
                 if (remainder > 0):
                     task_q[-1].remaining_t = remainder
                     if (cur_t != end_t):
@@ -278,16 +341,16 @@ def generate_rms_schedule(tasks: list[Task]):
     # create DataFrame used by Plotly
     dfs = []
     for task in tasks:
-        if DEBUG_LEVEL >= HIGH:
+        if VERBOSITY >= HIGH:
             print(task)
-        # add all time frames in the task to the DataFrame.
+        # add all time frame tuples in the task to the DataFrame.
         for i in range(0, len(task.time_frames)):
             cur_dict = task.getDict(i)
-            if DEBUG_LEVEL >= HIGH:
+            if VERBOSITY >= HIGH:
                 print(cur_dict)
             dfs.append(pd.DataFrame([cur_dict]))
     df = pd.concat(dfs)
-    if DEBUG_LEVEL >= LOW:
+    if VERBOSITY >= LOW:
         print(df)
         print(str(len(preemptions)) + " preemptions.")
         for p in preemptions:
@@ -316,7 +379,7 @@ def generate_edf_schedule(tasks: list[Task]):
         multiples = [0] * n
         task_q = copy.deepcopy(tasks)
         lcm = get_lcm_period(tasks)
-        if DEBUG_LEVEL >= MEDIUM:
+        if VERBOSITY >= MEDIUM:
             print("LCM = " + str(lcm))
 
         while (cur_t < lcm):
@@ -342,10 +405,10 @@ def generate_edf_schedule(tasks: list[Task]):
                                 # occurs when 2+ tasks have the same deadline/priority
                                 task_indices.append(i)
                 
-                # update remaining_t, add TimeFrame for current task (if applicable), and update task_q
+                # update remaining_t, add TimeFrame tuple for current task (if applicable), and update task_q
                 remainder = task.remaining_t - (end_t - cur_t)
                 if (cur_t != end_t):
-                    tasks[task.priority].time_frames.append(TimeFrame(cur_t, end_t))
+                    tasks[task.priority].time_frames.append((cur_t, end_t))
                 if (remainder > 0):
                     task_q[-1].remaining_t = remainder
                     if (cur_t != end_t):
@@ -371,21 +434,34 @@ def generate_edf_schedule(tasks: list[Task]):
 
     dfs = []
     for task in tasks:
-        if DEBUG_LEVEL >= HIGH:
+        if VERBOSITY >= HIGH:
             print(task)
-        # add all time frames in the task to the DataFrame.
+        # add all time frame tuples in the task to the DataFrame.
         for i in range(0, len(task.time_frames)):
             cur_dict = task.getDict(i)
-            if DEBUG_LEVEL >= HIGH:
+            if VERBOSITY >= HIGH:
                 print(cur_dict)
             dfs.append(pd.DataFrame([cur_dict]))
     df = pd.concat(dfs)
-    if DEBUG_LEVEL >= LOW:
+    if VERBOSITY >= LOW:
         print(df)
         print(str(len(preemptions)) + " preemptions.")
         for p in preemptions:
             print(p)
     return df
+
+
+# utility function for printing all the tasks from a list of tasks
+# Ensures iterator is working
+def print_tasks(tasks):
+    iterator = iter(tasks)
+    while True:
+        try:
+            e = next(iterator)
+            print(e)
+        except StopIteration:
+            print("Done iterating over tasks")
+            break
 
 
 # shows the schedule in the DataFrame and height and width parameters
@@ -403,11 +479,11 @@ tasks = [Task("T1", 2, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 3
 
 tasks = [Task("T1", 1, 8), Task("T6", 1, 8), Task("T2", 3, 12), Task("T3", 5, 16), Task("T4", 4, 32), Task("T5", 3, 96), Task("T7", 2, 96)]
 
-
 # tasks = [Task("T1", 1, 4), Task("T2", 3, 50), Task("T3", 3, 32), Task("T4", 1, 36), Task("T5", 5, 128)]
 
-show_schedule(generate_rms_schedule(tasks), len(tasks) * 100, 800)
-show_schedule(generate_edf_schedule(tasks), len(tasks) * 100, 800)
+# show_schedule(generate_rms_schedule(tasks), len(tasks) * 100, 800)
+# show_schedule(generate_edf_schedule(tasks), len(tasks) * 100, 800)
+
 
 app = QtWidgets.QApplication(sys.argv)
 window = MainWindow()
