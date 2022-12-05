@@ -10,10 +10,22 @@
     <height>600</height>
    </rect>
   </property>
+  <property name="font">
+   <font>
+    <family>Segoe UI</family>
+    <pointsize>12</pointsize>
+   </font>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="font">
+    <font>
+     <family>Segoe UI</family>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
    <layout class="QGridLayout" name="gridLayout">
     <item row="0" column="0">
      <layout class="QVBoxLayout" name="verticalLayout">
@@ -32,6 +44,12 @@
           </property>
           <item>
            <widget class="QLabel" name="labelTaskName">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
             <property name="layoutDirection">
              <enum>Qt::LeftToRight</enum>
             </property>
@@ -45,6 +63,12 @@
           </item>
           <item>
            <widget class="QLabel" name="labelTaskExecTime">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
             <property name="text">
              <string>Task Execution Time</string>
             </property>
@@ -55,6 +79,12 @@
           </item>
           <item>
            <widget class="QLabel" name="labelTaskPeriod">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
             <property name="text">
              <string>Task Period</string>
             </property>
@@ -71,13 +101,34 @@
            <number>9</number>
           </property>
           <item>
-           <widget class="QLineEdit" name="lineEditTaskName"/>
+           <widget class="QLineEdit" name="lineEditTaskName">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+           </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="lineEditTaskExecTime"/>
+           <widget class="QLineEdit" name="lineEditTaskExecTime">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+           </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="lineEditTaskPeriod"/>
+           <widget class="QLineEdit" name="lineEditTaskPeriod">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -85,16 +136,35 @@
       </item>
       <item>
        <widget class="QPushButton" name="addTaskBtn">
+        <property name="font">
+         <font>
+          <family>Segoe UI</family>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
         <property name="text">
          <string>Add Task</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QListView" name="listView"/>
+       <widget class="QListView" name="listView">
+        <property name="font">
+         <font>
+          <family>Segoe UI</family>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QPushButton" name="deleteTaskBtn">
+        <property name="font">
+         <font>
+          <family>Segoe UI</family>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
         <property name="text">
          <string>Delete Task</string>
         </property>
@@ -102,6 +172,12 @@
       </item>
       <item>
        <widget class="QTextEdit" name="textEditConsole">
+        <property name="font">
+         <font>
+          <family>Segoe UI</family>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
         <property name="readOnly">
          <bool>true</bool>
         </property>
@@ -109,6 +185,12 @@
       </item>
       <item>
        <widget class="QPushButton" name="generateSchedBtn">
+        <property name="font">
+         <font>
+          <family>Segoe UI</family>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
         <property name="text">
          <string>Generate Schedules</string>
         </property>
@@ -124,11 +206,22 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>
