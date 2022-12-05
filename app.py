@@ -167,10 +167,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         tasks = self.model.tasks
         if (len(tasks) > 0):
             self.set_console("Generating RMS schedule")
-            self.show_schedule(self.generate_rms_schedule(tasks), max(len(tasks) * 100, 400), 800)
+            self.show_schedule(self.generate_rms_schedule(tasks), max(len(tasks) * 90, 600), 900)
             self.append_console("")
             self.append_console("Generating EDF schedule")
-            self.show_schedule(self.generate_edf_schedule(tasks), max(len(tasks) * 100, 400), 800)
+            self.show_schedule(self.generate_edf_schedule(tasks), max(len(tasks) * 90, 600), 900)
         else:
             self.set_console("No tasks to schedule!")
 
@@ -178,7 +178,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def show_schedule(self, df, h, w):
         fig = ff.create_gantt(df, index_col='Task', showgrid_x=True, bar_width=0.3, show_colorbar=True, group_tasks=True)
-        fig.update_layout(xaxis_type='linear', autosize=False, width=w, height=h)
+        fig.update_layout(xaxis_type='linear', autosize=False, height=h, width=w)
         fig.show()
 
 
@@ -305,7 +305,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             multiples = [0] * n
             task_q = copy.deepcopy(tasks)
             lcm = self.get_lcm_period(tasks)
-            if VERBOSITY >= MEDIUM:
+            if VERBOSITY >= LOW:
                 self.append_console("LCM = " + str(lcm))
 
             while (cur_t < lcm):
@@ -399,7 +399,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             multiples = [0] * n
             task_q = copy.deepcopy(tasks)
             lcm = self.get_lcm_period(tasks)
-            if VERBOSITY >= MEDIUM:
+            if VERBOSITY >= LOW:
                 self.append_console("LCM = " + str(lcm))
 
             while (cur_t < lcm):
