@@ -1,4 +1,5 @@
 import sys
+import jsonpickle
 import math
 import copy
 import plotly.express as px
@@ -104,6 +105,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
         self.model = TasksListModel()
+        self.load()
         self.listView.setModel(self.model)
         self.addTaskBtn.pressed.connect(self.addTask)
         self.deleteTaskBtn.pressed.connect(self.deleteTask)
@@ -136,6 +138,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.lineEditTaskExecTime.setText("")
                 self.lineEditTaskPeriod.setText("")
                 self.set_console(str(new_task) + " added")
+                self.save()
             else:
                 self.set_console(str(new_task) + " NOT added! Ensure unique task names.")
         else:
@@ -149,6 +152,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 return True
         return False
 
+
     def deleteTask(self):
         indexes = self.listView.selectedIndexes()
         if (indexes):
@@ -160,8 +164,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.model.layoutChanged.emit()
             self.listView.clearSelection()
             self.set_console(str(to_delete) + " deleted")
+            self.save()
         else:
             self.set_console("No task to delete!")
+
+
+    def load(self):
+        try:
+            f = open('data.db', 'r')
+            tasksJSON = f.read()
+            self.model.tasks = jsonpickle.decode(tasksJSON)
+            f.close()
+        except Exception:
+            pass
+
+
+    def save(self):
+        # unpicklable=True
+        try:
+            f = open('data.db', 'w')
+            tasksJSON = jsonpickle.encode(self.model.tasks)
+            f.write(tasksJSON)
+            f.close()
+        except Exception:
+            pass
+
 
     def generateSched(self):
         tasks = self.model.tasks
@@ -174,8 +201,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.set_console("No tasks to schedule!")
 
-    # shows the schedule in the DataFrame and height and width parameters
 
+    # shows the schedule in the DataFrame and height and width parameters
     def show_schedule(self, df, h, w):
         fig = ff.create_gantt(df, index_col='Task', showgrid_x=True, bar_width=0.3, show_colorbar=True, group_tasks=True)
         fig.update_layout(xaxis_type='linear', autosize=False, height=h, width=w)
