@@ -13,7 +13,7 @@ DISABLED = 0
 LOW = 1
 MEDIUM = 2
 HIGH = 3
-VERBOSITY = LOW
+VERBOSITY = DISABLED
 
 # Refer to https://www.pythonguis.com/tutorials/modelview-architecture/ for MVC
 qt_ui_file = "RT_Visualizer.ui"
@@ -194,18 +194,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         tasks = self.model.tasks
         if (len(tasks) > 0):
             self.set_console("Generating RMS schedule")
-            self.show_schedule(self.generate_rms_schedule(tasks), max(len(tasks) * 90, 600), 900)
+            self.show_schedule(self.generate_rms_schedule(tasks), "RMS Schedule", max(len(tasks) * 90, 600), 900)
             self.append_console("")
             self.append_console("Generating EDF schedule")
-            self.show_schedule(self.generate_edf_schedule(tasks), max(len(tasks) * 90, 600), 900)
+            self.show_schedule(self.generate_edf_schedule(tasks), "EDF Schedule", max(len(tasks) * 90, 600), 900)
         else:
             self.set_console("No tasks to schedule!")
 
 
     # shows the schedule in the DataFrame and height and width parameters
-    def show_schedule(self, df, h, w):
+    def show_schedule(self, df, t, h, w):
         fig = ff.create_gantt(df, index_col='Task', showgrid_x=True, bar_width=0.3, show_colorbar=True, group_tasks=True)
-        fig.update_layout(xaxis_type='linear', autosize=False, height=h, width=w)
+        fig.update_layout(title=t, xaxis_type='linear', autosize=False, height=h, width=w)
         fig.show()
 
 
@@ -282,31 +282,35 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     # inserts 1 task at the correct index into the task queue for RMS (ordered low to high priority)
     def insert_task_q_rms(self, task_q: list[Task], task: Task) -> list[Task]:
         task = copy.deepcopy(task)
-        if ((task_q is None) or ((task_q is not None) and (len(task_q) == 0))):
+        # (task_q is None) or ((task_q is not None) and (
+        if (len(task_q) == 0):
             task_q = [task]
             return task_q
         for i in range(len(task_q) - 1, -1, -1):
             if (task.period < task_q[i].period):
                 task_q.insert(i+1, task)
-                return task_q
+                break
             elif (task.period == task_q[i].period):
                 task_q.insert(i, task)
-                return task_q
+                break
+        return task_q
 
 
     # inserts 1 task at the correct index into the task queue for EDF (ordered low to high priority)
     def insert_task_q_edf(self, task_q: list[Task], task: Task) -> list[Task]:
         task = copy.deepcopy(task)
-        if ((task_q is None) or ((task_q is not None) and (len(task_q) == 0))):
+        # (task_q is None) or ((task_q is not None) and (
+        if (len(task_q) == 0):
             task_q = [task]
             return task_q
         for i in range(len(task_q) - 1, -1, -1):
             if (task.cur_deadline < task_q[i].cur_deadline):
                 task_q.insert(i+1, task)
-                return task_q
+                break
             elif (task.cur_deadline == task_q[i].cur_deadline):
                 task_q.insert(i, task)
-                return task_q
+                break
+        return task_q
 
 
     # generates the RMS schedule for the given task set
@@ -332,11 +336,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             multiples = [0] * n
             task_q = copy.deepcopy(tasks)
             lcm = self.get_lcm_period(tasks)
-            if VERBOSITY >= LOW:
-                self.append_console("LCM = " + str(lcm))
+            self.append_console("Hyper period = " + str(lcm))
 
             while (cur_t < lcm):
-                if ((task_q is not None) and (len(task_q) > 0)):
+                # (task_q is not None) and (
+                if (len(task_q) > 0):
                     # get highest priority task
                     task = task_q[-1]
                     end_t = cur_t + task.remaining_t
@@ -426,11 +430,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             multiples = [0] * n
             task_q = copy.deepcopy(tasks)
             lcm = self.get_lcm_period(tasks)
-            if VERBOSITY >= LOW:
-                self.append_console("LCM = " + str(lcm))
+            self.append_console("Hyper period = " + str(lcm))
 
             while (cur_t < lcm):
-                if ((task_q is not None) and (len(task_q) > 0)):
+                # (task_q is not None) and (
+                if (len(task_q) > 0):
                     # get highest priority task
                     task = task_q[-1]
                     end_t = cur_t + task.remaining_t
