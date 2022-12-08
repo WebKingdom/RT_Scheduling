@@ -1,4 +1,5 @@
 import sys
+import time
 import jsonpickle
 import math
 import copy
@@ -320,6 +321,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.append_console("Error: len(tasks) <= 0. Must have 1+ tasks for scheduling.")
             return pd.DataFrame([dict(Task="No tasks.", Start=0, Finish=0)])
 
+        # start algorithm timer
+        start_t = time.time()
         # * must sort tasks from low (0) to high (len(tasks) - 1) priority so that utilization test can set priority
         tasks = copy.deepcopy(sorted(tasks, key=lambda task: task.period, reverse=True))
         sched_util_test, tasks = self.rms_utilization_test(tasks)
@@ -389,6 +392,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.append_console("Task set is not schedulable by RMS.")
             return pd.DataFrame([dict(Task="Not RMS Schedulable", Start=0, Finish=0)])
 
+        # end algorithm timer
+        end_t = time.time()
+        self.append_console("RMS Python execution time: " + str(round((end_t - start_t) * 1000, 4)) + "ms")
+
         # create DataFrame used by Plotly
         dfs = []
         for task in tasks:
@@ -416,6 +423,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.append_console("Error: len(tasks) <= 0. Must have 1+ tasks for scheduling.")
             return pd.DataFrame([dict(Task="No tasks.", Start=0, Finish=0)])
 
+        # start algorithm timer
+        start_t = time.time()
         # * must sort tasks from low (0) to high (len(tasks) - 1) priority so that utilization test can set priority
         tasks = copy.deepcopy(sorted(tasks, key=lambda task: task.cur_deadline, reverse=True))
         sched_util_test, tasks = self.edf_utilization_test(tasks)
@@ -482,6 +491,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.append_console("Task set is not schedulable by EDF.")
             return pd.DataFrame([dict(Task="Not EDF Schedulable", Start=0, Finish=0)])
+
+        # end algorithm timer
+        end_t = time.time()
+        self.append_console("EDF Python execution time: " + str(round((end_t - start_t) * 1000, 4)) + "ms")
 
         dfs = []
         for task in tasks:
