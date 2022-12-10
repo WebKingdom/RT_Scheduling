@@ -1,5 +1,5 @@
 # RT_Scheduling
-An app for visualizing real time scheduling algorithms.
+An app for visualizing real-time scheduling algorithms.
 
 # Setup
 Use the commands below to set up the Real-Time Scheduling Algorithm Visualizer (RT-SAV) app.
