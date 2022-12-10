@@ -289,10 +289,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for i in range(len(task_q) - 1, -1, -1):
             if (task.period < task_q[i].period):
                 task_q.insert(i+1, task)
-                break
+                return task_q
             elif (task.period == task_q[i].period):
                 task_q.insert(i, task)
-                break
+                return task_q
+        # Otherwise, insert task at end of queue since period is greater
+        task_q.append(task)
         return task_q
 
 
@@ -306,10 +308,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for i in range(len(task_q) - 1, -1, -1):
             if (task.cur_deadline < task_q[i].cur_deadline):
                 task_q.insert(i+1, task)
-                break
+                return task_q
             elif (task.cur_deadline == task_q[i].cur_deadline):
                 task_q.insert(i, task)
-                break
+                return task_q
+        # Otherwise, insert task at end of queue since deadline is greater
+        task_q.append(task)
         return task_q
 
 
