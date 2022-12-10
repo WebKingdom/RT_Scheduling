@@ -1,11 +1,10 @@
 import sys
 import time
-import jsonpickle
 import math
 import copy
-import plotly.express as px
-import plotly.figure_factory as ff
 import pandas as pd
+import jsonpickle
+import plotly.figure_factory as ff
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
 
@@ -352,7 +351,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     # determine end_t due to higher priority tasks
                     for i in range(0, len(multiples)):
-                        new_multiple = int(end_t / tasks[i].period)
+                        new_multiple = min(int(end_t / tasks[i].period), int(multiples[i] + 1))
                         if (new_multiple != multiples[i]):
                             if (tasks[i].period < task.period):
                                 # task has higher priority than current task being scheduled
@@ -384,7 +383,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     cur_t += 1
                 # update multiples based on cur_t and update task_q
                 for i in range(0, len(multiples)):
-                    new_multiple = int(cur_t / tasks[i].period)
+                    new_multiple = min(int(cur_t / tasks[i].period), int(multiples[i] + 1))
                     if (new_multiple != multiples[i]):
                         task_q = self.insert_task_q_rms(task_q, tasks[i])
                         multiples[i] = new_multiple
@@ -426,7 +425,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # start algorithm timer
         start_t = time.time()
         # * must sort tasks from low (0) to high (len(tasks) - 1) priority so that utilization test can set priority
-        tasks = copy.deepcopy(sorted(tasks, key=lambda task: task.cur_deadline, reverse=True))
+        tasks = copy.deepcopy(sorted(tasks, key=lambda task: task.deadline, reverse=True))
         sched_util_test, tasks = self.edf_utilization_test(tasks)
         self.append_console("EDF utilization test: " + ("Pass" if sched_util_test else "Fail"))
         # list of preemptions
@@ -452,7 +451,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                     # determine end_t due to higher priority tasks
                     for i in range(0, len(multiples)):
-                        new_multiple = int(end_t / tasks[i].period)
+                        new_multiple = min(int(end_t / tasks[i].period), int(multiples[i] + 1))
                         if (new_multiple != multiples[i]):
                             if (int(tasks[i].period * new_multiple + tasks[i].deadline) < task.cur_deadline):
                                 # task has higher priority (earlier deadline) than current task being scheduled
@@ -483,7 +482,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     # no task to schedule, increment time
                     cur_t += 1
                 for i in range(0, len(multiples)):
-                    new_multiple = int(cur_t / tasks[i].period)
+                    new_multiple = min(int(cur_t / tasks[i].period), int(multiples[i] + 1))
                     if (new_multiple != multiples[i]):
                         tasks[i].cur_deadline = int(tasks[i].period * new_multiple + tasks[i].deadline)
                         task_q = self.insert_task_q_edf(task_q, tasks[i])
