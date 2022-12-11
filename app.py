@@ -13,7 +13,7 @@ DISABLED = 0
 LOW = 1
 MEDIUM = 2
 HIGH = 3
-VERBOSITY = DISABLED
+VERBOSITY = LOW
 
 # Refer to https://www.pythonguis.com/tutorials/modelview-architecture/ for MVC
 qt_ui_file = "RT_Visualizer.ui"
@@ -229,18 +229,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             task = tasks[i]
             cur_time = 0.0
             workload = self.compute_workload(tasks[i:n], cur_time, initial_workload=True)
+            t_k = 0
             while ((cur_time != workload) and (workload <= task.period)):
                 cur_time = workload
                 workload = self.compute_workload(tasks[i:n], cur_time)
+                t_k += 1
 
             if (cur_time == workload):
-                if VERBOSITY >= MEDIUM:
-                    self.append_console(str(task) + " schedulable by exact analysis due to: " +
-                                        str(cur_time) + " == " + str(workload))
+                if VERBOSITY >= LOW:
+                    self.append_console(str(task) + " schedulable by exact analysis due to: W" +
+                                        "(t" + str(t_k-1) + ")=" + str(workload) + " == " + "t" + str(t_k-1) + "=" + str(cur_time))
             elif (workload > task.period):
-                if VERBOSITY >= MEDIUM:
-                    self.append_console(str(task) + " NOT schedulable by exact analysis due to: " +
-                                        str(workload) + " > " + str(task.period))
+                if VERBOSITY >= LOW:
+                    self.append_console(str(task) + " NOT schedulable by exact analysis due to: W" +
+                                        "(t" + str(t_k-1) + ")=" + str(workload) + " > pi=" + str(task.period))
                 return False
         return True
 
